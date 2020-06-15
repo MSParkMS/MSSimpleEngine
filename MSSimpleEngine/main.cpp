@@ -68,71 +68,9 @@ private:
 
 	void InitVulkan()
 	{
-		VkApplicationInfo appInfo{};
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "Hello Triangle";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "No Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
-
-		auto extensions = GetRequiredExtensions();
-		const uint32_t requiredExtensionCount = static_cast<uint32_t>(extensions.size());
-
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInfo.pApplicationInfo = &appInfo;
-		createInfo.enabledExtensionCount = requiredExtensionCount;
-		createInfo.ppEnabledExtensionNames = extensions.data();
-
-		if (enableValidationLayers)
-		{
-			if (!CheckValidationLayerSupport())
-			{
-				throw std::runtime_error("validation layers requested, but not avaiable!");	
-			}
-
-			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			createInfo.ppEnabledLayerNames = validationLayers.data();
-		}
-		else
-		{
-			createInfo.enabledLayerCount = 0;
-		}
-
-		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create instance!");
-		}
-
-		uint32_t extensionCount = 0;
-		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-
-		std::vector<VkExtensionProperties> enableExtensions(extensionCount);
-		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, enableExtensions.data());
-
-		uint32_t checkExtensionCount = 0;
-
-		std::cout << "available extensions:" << std::endl;
-		for (const auto& extension : enableExtensions)
-		{
-			std::cout << '\t' << extension.extensionName << std::endl;
-
-			// brute force check
-			for (uint32_t i = 0; i < requiredExtensionCount; ++i)
-			{
-				if (!strcmp(extensions[i], extension.extensionName))
-				{
-					std::cout << "\t\t" << extension.extensionName << " is glfw extensions" << std::endl;
-					checkExtensionCount++;
-				}
-			}
-		}
-
-		if (checkExtensionCount < requiredExtensionCount)
-		{
-			throw std::runtime_error("extensions are not supported!");
-		}
+		CreateInstance();
+		SetupDebugMessenger();
+		PickPhysicalDevice();
 	}
 
 	void MainLoop()
@@ -207,16 +145,90 @@ private:
 		return extensions;
 	}
 
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 	{
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		createInfo.pfnUserCallback = debugCallback;
+		createInfo.pfnUserCallback = DebugCallback;
 	}
 
-	void setupDebugMessenger()
+	void CreateInstance()
+	{
+		VkApplicationInfo appInfo{};
+		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		appInfo.pApplicationName = "Hello Triangle";
+		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.pEngineName = "No Engine";
+		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+		appInfo.apiVersion = VK_API_VERSION_1_0;
+
+		auto extensions = GetRequiredExtensions();
+		const uint32_t requiredExtensionCount = static_cast<uint32_t>(extensions.size());
+
+		VkInstanceCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+		createInfo.pApplicationInfo = &appInfo;
+		createInfo.enabledExtensionCount = requiredExtensionCount;
+		createInfo.ppEnabledExtensionNames = extensions.data();
+
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+		if (enableValidationLayers)
+		{
+			if (!CheckValidationLayerSupport())
+			{
+				throw std::runtime_error("validation layers requested, but not avaiable!");
+			}
+
+			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			createInfo.ppEnabledLayerNames = validationLayers.data();
+
+			PopulateDebugMessengerCreateInfo(debugCreateInfo);
+			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+		}
+		else
+		{
+			createInfo.enabledLayerCount = 0;
+			createInfo.pNext = nullptr;
+		}
+
+		if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create instance!");
+		}
+
+		uint32_t extensionCount = 0;
+		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+
+		std::vector<VkExtensionProperties> enableExtensions(extensionCount);
+		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, enableExtensions.data());
+
+		uint32_t checkExtensionCount = 0;
+
+		std::cout << "available extensions:" << std::endl;
+		for (const auto& extension : enableExtensions)
+		{
+			std::cout << '\t' << extension.extensionName << std::endl;
+
+			// brute force check
+			for (uint32_t i = 0; i < requiredExtensionCount; ++i)
+			{
+				if (!strcmp(extensions[i], extension.extensionName))
+				{
+					std::cout << "\t\t" << extension.extensionName << " is glfw extensions" << std::endl;
+					checkExtensionCount++;
+				}
+			}
+		}
+
+		if (checkExtensionCount < requiredExtensionCount)
+		{
+			throw std::runtime_error("extensions are not supported!");
+		}
+	}
+
+	void SetupDebugMessenger()
 	{
 		if (!enableValidationLayers)
 		{
@@ -224,16 +236,20 @@ private:
 		}
 
 		VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-		populateDebugMessengerCreateInfo(createInfo);
-		createInfo.pUserData = nullptr; // Optional
-		
+		PopulateDebugMessengerCreateInfo(createInfo);
+
 		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to set up debug messenger!");
 		}
 	}
 
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+	void PickPhysicalDevice()
+	{
+
+	}
+
+	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT /*messageSeverity*/,
 		VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
 		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -248,6 +264,7 @@ private:
 	GLFWwindow* window;
 	VkInstance	instance;
 	VkDebugUtilsMessengerEXT debugMessenger;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 };
 
 int main()
